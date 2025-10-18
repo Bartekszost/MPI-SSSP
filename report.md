@@ -1,31 +1,20 @@
-# MPI implementation of SSSP (Single Source Shortest Paths)
+# HPC MPI project report
 
-## 1. Problem Statement
+### Bartosz Szostakiewicz
 
-Our task was to implement in **MPI** the distributed **$\Delta$-stepping algorithm** for the **Single Source Shortest Paths (SSSP)** problem, along with several heuristic optimizations.
-
-The **$\Delta$-stepping algorithm** can be seen as a intermediate algorithm between **Dijkstra** and **Bellman-Ford** algorithms: **Dijkstra** algorithm is very work-efficient, but it can’t be efficiently parallelized, while the **Bellman-Ford** algorithm is easy to parallelize, but has larger computational complexity.
-
-We should implement the algorithm and chosen optimizations based on this paper:
-
-**Scalable Single Source Shortest Path Algorithms for
-Massively Parallel Systems**  
-Venkatesan T. Chakaravarthy, Fabio Checconi, Fabrizio Petrini, Yogish Sabharwa
-https://www.odbms.org/wp-content/uploads/2014/05/sssp-ipdps2014.pdf
-
-## 2. Implementation
+## 1. Implementation
 
 I have implemented the algorithm using the `MPI_Alltoallv` communication. I am storing the buckets in a `std::map<set::unordered_set<int>`, and in the `process_bucket` function I am first updating the distances and buckets of local nodes and preparing all the outer edge updates for sending. I am computing `next_bucket_index` and the number of settled vertices for the hybridization optimization using `MPI_Allreduce`. I am also using a simle `MPI_Barrier` in the edge classification version for simple synchronization.
 
 I've implemented the optimization flags as constants that can be overriden during compilation like this `make "-DDELTA=10 -DEDGE_CLASSIFICATION=true -DHYBRIDIZATION=true -DTAU=0.8"`, those are the default values.
 
-## 3. Optimization and benchmarks
+## 2. Optimization and benchmarks
 
 I have generated graphs using the `RMAT-1` and `RMAT-2` models proposed in the paper. I divided them into 2 groups small `10k - 150k` vertices and `100k - 5m` edges and large `300k - 1m` vertices and `5m - 40m` edges.
 
 I have benchmarked the solutions for `[1, 10, 25, 40 80]` workers. 
 
-### 3.1 Hybridization
+### 2.1 Hybridization
 
 I compared Hybridization for `tau=[0.4, 0.6, 0.8]` and the baseline, with `tau=0.4` being the value recommended in the paper.
 
@@ -41,7 +30,7 @@ In conclusion the `tau` value should be chosen according to the graph size, smal
 
 One more interesting thing is that in smaller graphs, for more workers, the cost of communication between so much workers outweights the gain, so it is slower than with a smaller number of workers.
 
-### 3.2 Edge Classification
+### 2.2 Edge Classification
 
 I've compared the baseline implementation with Edge classification and edge classification with hybridization.
 
@@ -51,11 +40,11 @@ I've compared the baseline implementation with Edge classification and edge clas
 
 On both smaller and larger graphs the optimization leads to a very high speedup (`20-50%`). Here also generally the more workers the better speedup we get (apart from the situations where we have too much workers).
 
-## 4. Final solution
+## 3. Final solution
 
 For the final solution I left both optimizations on with `tau=0.8` for Hybridization.
 
-### 4.1 Delta tuning
+### 3.1 Delta tuning
 
 I compared the solution with the baseline for different delta values from set `[1, 5, 10, 20, 50]`. The `delta=1` value corresponds to the Dijsktra's algorithm.
 
@@ -65,7 +54,7 @@ I compared the solution with the baseline for different delta values from set `[
 
 It seems that the higher the delta the better it scales with higher worker number, but it still looks like `10` is the best value for delta. As we can see Dijkstra (`delta=1`) performs very poorly for large number of workers, and a high `delta=50` performs poorly for a small number of workers.
 
-### 4.2 Weak scaling
+### 3.2 Weak scaling
 
 Runtimes and scaling for a graph generated with the same seed from `10k` to `80k` vertices.
 
